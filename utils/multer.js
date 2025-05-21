@@ -1,23 +1,56 @@
-const multer = require('multer');
-const AWS = require('aws-sdk');
-const multerS3 = require('multer-s3');
+// utils/upload.js
 
-const s3 = new AWS.S3({
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const { S3Client } = require('@aws-sdk/client-s3');
+const { Upload } = require('@aws-sdk/lib-storage');
+
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION
+  },
 });
 
-const upload = multer({
-    storage: multerS3({
-        s3,
-        bucket: process.env.AWS_BUCKET_NAME,
-        acl: 'public-read',
-        metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
-        key: (req, file, cb) => {
-            cb(null, `gallery/${Date.now().toString()}_${file.originalname}`);
-        }
-    })
+// Local disk storage (temp)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'temp-uploads/');
+  },
+  filename: (req, file, cb) => {
+    const filename = `${Date.now()}-${file.originalname}`;
+    cb(null, filename);
+  },
 });
 
-module.exports = upload;
+const upload = multer({ storage });
+
+// Upload to S3 manually
+async function uploadToS3(file) {
+  const fileStream = fs.createReadStream(file.path);
+
+  const upload = new Upload({
+    client: s3,
+    params: {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: `gallery/${Date.now()}_${file.originalname}`,
+      Body: fileStream,
+      ContentType: file.mimetype,
+      ACL: 'public-read',
+    },
+  });
+
+  const result = await upload.done();
+
+  // Optionally delete temp file
+  fs.unlinkSync(file.path);
+
+  return result.Location; // Public URL
+}
+
+module.exports = {
+  upload,      // multer middleware
+  uploadToS3,  // function to call in route handler
+};

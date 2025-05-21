@@ -1,12 +1,22 @@
 const Gallery = require('../models/Gallery');
+const { uploadToS3 } = require('../utils/multer');
 
 exports.addImage = async (req, res) => {
-    const { name, date, status, sizeSqFt, clientDetails } = req.body;
-    const imageUrl = req.file.location;
 
+    try {
+    const imageUrl = await uploadToS3(req.file);
+    const { name, date, status, sizeSqFt, clientDetails } = req.body;
     const newImage = new Gallery({ name, date, status, sizeSqFt, clientDetails, imageUrl });
     await newImage.save();
+    await newImage.save();
     res.status(201).json(newImage);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Upload failed' });
+  }
+   
+    
+   
 };
 
 exports.getAllImages = async (req, res) => {
