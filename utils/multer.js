@@ -50,7 +50,36 @@ async function uploadToS3(file) {
   return result.Location; // Public URL
 }
 
+async function uploadMultipleToS3(files) {
+  const uploadedFiles = [];
+
+  for (const file of files) {
+    const fileStream = fs.createReadStream(file.path);
+    const key = `gallery/${Date.now()}_${file.originalname}`;
+
+    const upload = new Upload({
+      client: s3,
+      params: {
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: key,
+        Body: fileStream,
+        ContentType: file.mimetype,
+        ACL: 'public-read',
+      },
+    });
+
+    const result = await upload.done();
+    uploadedFiles.push({ url: result.Location, key });
+
+    // Clean up local file
+    fs.unlinkSync(file.path);
+  }
+
+  return uploadedFiles;
+}
+
 module.exports = {
   upload,      // multer middleware
-  uploadToS3,  // function to call in route handler
+  uploadToS3,
+  uploadMultipleToS3  // function to call in route handler
 };

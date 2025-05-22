@@ -5,7 +5,7 @@ require('dotenv').config();
 var logger = require('morgan');
 const authRoutes = require('./routes/auth');
 const galleryRoutes = require('./routes/gallery');
-
+ 
 const app = express();
 app.use(cors());
 app.use(express.json());
